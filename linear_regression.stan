@@ -11,7 +11,7 @@ data {
 transformed data {
   vector[J] min_x;
   vector[J] scale_x;
-  matrix[N, J] x_std;
+  matrix<lower=0, upper=1>[N, J] x_std;
   for (j in 1:J) {
     min_x[j] = min(x[,j]);
     scale_x[j] = (max(x[,j]) - min_x[j]);
@@ -25,8 +25,8 @@ parameters {
 }
 
 model {
+  sigma ~ cauchy(0,10);
   for (j in 1:J) {
-    sigma ~ cauchy(0,10);
     alpha[j] ~ beta(1, 1);
     beta[j] ~ normal(prior_beta_mu, prior_beta_sigma);
     y ~ normal(alpha[j] + beta[j] * x_std[,j], sigma);
