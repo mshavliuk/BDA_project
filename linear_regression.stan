@@ -1,6 +1,6 @@
 data {
-  int<lower=1> N; // number of data points
-  int<lower=1> J; // number of dimensions
+  int<lower=1> N;                           // number of data points
+  int<lower=1> J;                           // number of dimensions
   matrix[N, J] x;                           // data
   real<lower=0, upper=1> y[N];              // outcomes
   real prior_alpha_mu;                      // prior mean for alpha
@@ -33,12 +33,12 @@ model {
   }
 }
 generated quantities {
-  vector[N] log_lik = rep_vector(0, N);
+  vector[N * J] log_lik;
   vector<lower=0, upper=1>[N] probs = rep_vector(0, N);
 
   for (i in 1:N) {
     for (j in 1:J) {
-      log_lik[i] += normal_lpdf(y | alpha[j] + beta[j] * x_std[i,j], sigma);
+      log_lik[(i - 1) * J + j] = normal_lpdf(y | alpha[j] + beta[j] * x_std[i,j], sigma);
       probs[i] += alpha[j] + beta[j] * x_std[i,j];
     }
     probs[i] /= J;
