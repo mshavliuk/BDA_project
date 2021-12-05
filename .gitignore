@@ -8,3 +8,4 @@ Thumbs.db
 *.pyc
 **/.ipynb_checkpoints
 **/.pytest_cache
+**/.build

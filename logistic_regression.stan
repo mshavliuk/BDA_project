@@ -12,7 +12,7 @@ parameters {
 
 model {
     // Prior
-    alpha ~ student_t(2, 2, 10);
+    alpha ~ student_t(2, 0, 10);
     beta ~ normal(0, 1);
 
     // Likelihood / distribution of y
