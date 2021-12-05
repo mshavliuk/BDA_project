@@ -108,8 +108,8 @@ def plot_draws(fit, samples):
                                               wspace=0.1, hspace=0.3))
     axes = axes.ravel()
     line_style = dict(color='C3', linewidth=2, alpha=0.8)
+    probs = fit['probs'][:, :200]
     for i, param_name in enumerate(samples.columns):
-        probs = fit['probs'][:, :200]
         values = samples[param_name].values
         beta = np.broadcast_to(values, probs.T.shape).T
         axes[i].scatter(y=probs.ravel(), x=jitter(beta).ravel(), s=4, color='#00f', alpha=0.01)
@@ -117,12 +117,10 @@ def plot_draws(fit, samples):
         axes[i].set_ylabel(r"$P_{disease}$")
 
         xs = (values.min(), values.max() + 1)
-        alpha = fit['alpha'][i].mean()
         beta = fit['beta'][i].mean()
-        ys = (alpha, alpha + beta)
+        ys = (probs.mean() - beta / 2, probs.mean() + beta / 2)
         axes[i].plot(xs, ys, **line_style)
-        axes[i].set_ybound((0, 1))
-        axes[i].annotate(f"$\\alpha = {alpha:.3f}$\n$\\beta = {beta:.3f}$", xy=(0.7, 0.1),
+        axes[i].annotate(f"$\\beta = {beta:.3f}$", xy=(0.7, 0.1),
                          xycoords='axes fraction', fontsize=14)
 
     axes[samples.shape[1]].legend(
