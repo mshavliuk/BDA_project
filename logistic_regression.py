@@ -13,7 +13,7 @@ from stan.fit import Fit
 from sklearn.model_selection import KFold
 
 def build(N_train, N_test, features_number, X_train, y_train, X_test, verbose=False) -> stan.model.Model:
-    with open('logistic_regression.stan', 'r') as file:
+    with open('logistic_regression_accuracy.stan', 'r') as file:
         stan_code = file.read()
 
     stan_data = {'N_train': N_train, 
