@@ -1,6 +1,7 @@
 import contextlib
 import time
 from datetime import datetime
+from sklearn.preprocessing import StandardScaler
 
 import arviz as az
 import matplotlib.pyplot as plt
@@ -9,15 +10,18 @@ import pandas as pd
 import stan
 from IPython.display import display
 from stan.fit import Fit
+from sklearn.model_selection import KFold
 
-
-
-def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False) -> stan.model.Model:
+def build(N_train, N_test, features_number, X_train, y_train, X_test, verbose=False) -> stan.model.Model:
     with open('logistic_regression.stan', 'r') as file:
         stan_code = file.read()
 
-    stan_data = {'N': samples.shape[0], 'J': samples.shape[1],
-                 'x': samples.values, 'y': outcomes.values}
+    stan_data = {'N_train': N_train, 
+                 'N_test': N_test, 
+                 'J': features_number,
+                 'X_train': X_train, 
+                 'y_train': y_train,
+                 'X_test': X_test}
 
     return stan.build(stan_code, data=stan_data, random_seed=0)
 
@@ -40,34 +44,48 @@ def psis_loo_summary(fit: Fit):
     plt.show()
 
 
-def get_disease_prob(fit, data: pd.DataFrame, sample):
-    return fit['probs'][1999:].mean(axis=0)
+def get_disease_prob(fit):
+    return fit['y_prob_pred'].mean(axis=1)
 
-
-def leave_one_out(samples: pd.DataFrame, outcomes: pd.DataFrame):
-    num = samples.shape[0]
+def cross_validation(samples: pd.DataFrame, outcomes: pd.DataFrame):
+    X = samples.values
+    no_of_features = samples.shape[1]
+    y = outcomes.values
+    kf = KFold(n_splits = 5, shuffle = True)    
     false_pos, false_neg, predicted = 0, 0, 0
     start_time = time.time()
-    for i in range(num):
-        sample_query = samples.index.isin([i])
-        test_sample = samples[sample_query]
-        loo_samples = samples[~sample_query]
-        outcome_query = outcomes.index.isin([i])
-        test_outcome = outcomes[outcome_query].values[0]
-        loo_outcomes = outcomes[~outcome_query]
+    tot_test_len = 0
 
-        model = build(loo_samples, loo_outcomes)
+    for train_idx, test_idx in kf.split(X):
+       # print("TRAIN: ", train_idx, "TEST: ", test_idx)
+        X_train, X_test = X[train_idx], X[test_idx]
+        y_train, y_test = y[train_idx], y[test_idx]
+
+        N_train = len(y_train)
+        N_test = len(y_test)
+        
+        model = build(N_train, N_test, no_of_features, X_train, y_train, X_test)
         fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
 
-        prob = get_disease_prob(fit, loo_samples, test_sample)
-        false_pos += not test_outcome and (prob >= .5)
-        false_neg += test_outcome and (prob < .5)
-        predicted += test_outcome == (prob >= .5)
-        eta = datetime.fromtimestamp(time.time() + (time.time() - start_time) / (i + 1) * num)
-        print(f'ETA: {eta.strftime("%H:%M:%S")}', end=' | ')
-        print(f"LOO score: {predicted / (i + 1) * 100:3.2f}%", end=' | ')
-        print(f"Predicted: {predicted:3d} / {i + 1:3d}", end=' | ')
-        print(f"False positives: {false_pos} | False negatives: {false_neg}")
+        prob = get_disease_prob(fit)
+        tot_test_len += len(prob)
+        print(N_test)
+        print(prob.shape)
+        print(y_test.shape)
+        for i in range(len(prob)):
+            false_pos += not y_test[i] and (prob[i] >= .5)
+            false_neg += y_test[i] and (prob[i] < .5)
+            predicted += y_test[i] == (prob[i] >= .5)
+        
+        print("---------------------------------------------------------------------------")
+        psis_loo_summary(fit)
+        summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
+        display(summary)
+        print("---------------------------------------------------------------------------")
+
+    print(f"LOO score: {predicted / (tot_test_len) * 100:3.2f}%", end=' | ')
+    print(f"Predicted: {predicted:3d} / {tot_test_len:3d}", end=' | ')
+    print(f"False positives: {false_pos} | False negatives: {false_neg}")
 
     end_time = time.time()
     print(f"Total time: {end_time - start_time}")
@@ -76,15 +94,20 @@ def leave_one_out(samples: pd.DataFrame, outcomes: pd.DataFrame):
 def main():
     plt.rcParams['figure.dpi'] = 200
     data = pd.read_csv('heart.csv')
-    #samples = data[data.columns.difference(['target'])]
-    samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak', 'thal']]
+    SS = StandardScaler()
+    col_to_scale = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
+    data[col_to_scale] = SS.fit_transform(data[col_to_scale])
+
+    samples = data[data.columns.difference(['target'])]
+    #samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak', 'thal']]
     outcomes = data['target']
-    model = build(samples, outcomes)
-    fit = sample(model)
-    # leave_one_out(samples, outcomes) # takes an hour to execute
-    psis_loo_summary(fit)
-    summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
-    display(summary)
+    #model = build(samples, outcomes)
+    #fit = sample(model)
+
+    cross_validation(samples, outcomes)
+    #psis_loo_summary(fit)
+    #summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
+    #display(summary)
 
 
 if __name__ == '__main__':
