@@ -70,7 +70,7 @@ def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
 
 
 def plot_draws(fit, samples):
-    fig, axes = plt.subplots(5, 3, figsize=(14, 18), sharey=True,
+    fig, axes = plt.subplots(2, 3, figsize=(14, 8), sharey=True,
                              gridspec_kw=dict(left=0.05, right=0.98, bottom=0.04, top=0.96,
                                               wspace=0.1, hspace=0.3))
     axes = axes.ravel()
