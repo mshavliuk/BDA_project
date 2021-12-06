@@ -44,8 +44,8 @@ def sample(model, verbose=False):
         return model.sample(num_chains=4, num_samples=500, num_warmup=200)
 
 
-def get_disease_prob(fit):
-    return fit['y_prob_pred'].mean(axis=1)
+def get_disease_prob(fit, i, *args):
+    return fit['y_prob_pred'][i].mean()
 
 
 def main():
@@ -57,9 +57,9 @@ def main():
 
     samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak']]
     outcomes = data['target']
+    k_fold_cv(build_for_accuracy_check, get_disease_prob, samples, outcomes, 50)
     model = build(samples, outcomes, True)
     fit = sample(model)
-    k_fold_cv(samples, outcomes, 50)
     psis_loo_summary(fit, 'Logistic')
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
     display(summary)
