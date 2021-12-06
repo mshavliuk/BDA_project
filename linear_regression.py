@@ -9,7 +9,7 @@ import pandas as pd
 import stan
 from IPython.display import display
 from stan.fit import Fit
-
+from sklearn.model_selection import KFold
 from utils import suppress_stdout_stderr
 
 
@@ -25,7 +25,6 @@ def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False) -> stan.
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
     with context():
         return stan.build(stan_code, data=stan_data, random_seed=0)
-
 
 def sample(model, verbose=False):
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
@@ -46,20 +45,18 @@ def psis_loo_summary(fit: Fit):
     print(f"Mean Pareto K: {loo['pareto_k'].values.mean():.2f}")
     plt.show()
 
-
 def get_prob(fit, data: pd.DataFrame, sample):
     prob = np.zeros(fit.num_chains * fit.num_samples)
     scale = (data.max() - data.min())
     sample_std = (sample - data.min()) / scale
     for i, param_name in enumerate(data.columns):
-        alpha_i = fit['alpha'][i]
-        beta_i = fit['beta'][i]
+        alpha_i = fit['alpha'][0][i]
+        beta_i = fit['beta'][0][i]
         x_i = sample_std[param_name].iloc[0]
         prob += alpha_i + beta_i * x_i
 
     prob /= sample.shape[1]
     return prob
-
 
 def loo_cv(samples: pd.DataFrame, outcomes: pd.DataFrame):
     num = samples.shape[0]
@@ -139,20 +136,47 @@ def plot_draws(fit, samples):
         ax.set_axis_off()
     plt.show()
 
+def k_fold_cv(samples: pd.DataFrame, outcomes: pd.DataFrame):
+    kf = KFold(n_splits = 5, shuffle = True)    
+    false_pos, false_neg, predicted = 0, 0, 0
+    tot_test_len = 0
+    start_time = time.time()
+    for train_idx, test_idx in kf.split(samples):
+        X_train, X_test = samples.iloc[train_idx], samples.iloc[test_idx]
+        y_train, y_test = outcomes.iloc[train_idx], outcomes.iloc[test_idx]       
+
+        with suppress_stdout_stderr():
+            model = build(X_train, y_train)
+            fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
+
+        tot_test_len += len(y_test)
+        for i in range(len(y_test)):
+            tmp_sample = pd.DataFrame(X_test.iloc[i])
+            prob_mean = get_prob(fit, samples, tmp_sample).mean()
+            false_pos += not y_test.iloc[i] and (prob_mean >= .5)
+            false_neg += y_test.iloc[i] and (prob_mean < .5)
+            predicted += y_test.iloc[i] == (prob_mean >= .5)
+            
+    print(f"LOO-CV score: {predicted / (tot_test_len) * 100:3.2f}%", end=' | ')
+    print(f"Predicted: {predicted:3d} / {tot_test_len:3d}", end=' | ')
+    print(f"False positives: {false_pos} | False negatives: {false_neg}", end='\r', flush=True)
+
+    print(f"\nTotal time: {time.time() - start_time}")
 
 def main():
     plt.rcParams['figure.dpi'] = 200
     data = pd.read_csv('heart.csv')
     samples = data[data.columns.difference(['target'])]
     outcomes = data['target']
-    model = build(samples, outcomes)
-    fit = sample(model)
-    plot_draws(fit, samples)
-    # loo_cv(samples, outcomes)
-    loo_within_sample(fit, outcomes)
-    psis_loo_summary(fit)
-    summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
-    display(summary)
+    #model = build(samples, outcomes)
+    #fit = sample(model)
+    #plot_draws(fit, samples)
+    #loo_cv(samples, outcomes)
+    k_fold_cv(samples, outcomes)
+    #loo_within_sample(fit, outcomes)
+    #psis_loo_summary(fit)
+    #summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
+    #display(summary)
 
 
 if __name__ == '__main__':

@@ -22,21 +22,16 @@ parameters {
 
 model {
   sigma ~ cauchy(0,10);
-  for (j in 1:J) {
-    alpha[j] ~ beta(1, 1);
-    beta[j] ~ double_exponential(0, 1);
-    y ~ normal(alpha[j] + beta[j] * x_std[,j], sigma);
-  }
+  //alpha ~ beta(1, 1);
+  //beta ~ normal(prior_beta_mu, prior_beta_sigma);
+  y ~ normal(alpha + x_std * beta, sigma);
 }
 generated quantities {
-  vector[N * J] log_lik;
-  vector<lower=0, upper=1>[N] probs = rep_vector(0, N);
+  vector[N] log_lik;
+  vector[N] probs;
 
   for (i in 1:N) {
-    for (j in 1:J) {
-      log_lik[(i - 1) * J + j] = normal_lpdf(y | alpha[j] + beta[j] * x_std[i,j], sigma);
-      probs[i] += alpha[j] + beta[j] * x_std[i,j];
-    }
-    probs[i] /= J;
+    log_lik[i] = normal_lpdf(y | alpha + x_std[i] * beta, sigma);
+    probs[i] = alpha + x_std[i] * beta;
   }
 }
