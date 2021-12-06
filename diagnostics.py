@@ -1,4 +1,5 @@
 import time
+from typing import Callable
 
 import arviz as az
 import pandas as pd
@@ -7,7 +8,6 @@ from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold
 from stan.fit import Fit
 
-from logistic_regression import build_for_accuracy_check, get_disease_prob
 from utils import suppress_stdout_stderr
 
 
@@ -21,7 +21,8 @@ def psis_loo_summary(fit: Fit, name: str):
     plt.show()
 
 
-def k_fold_cv(samples: pd.DataFrame, outcomes: pd.DataFrame, n_splits=5):
+def k_fold_cv(model_builder: Callable, predictor: Callable, samples: pd.DataFrame,
+              outcomes: pd.DataFrame, n_splits=5):
     X = samples.values
     y = outcomes.values
     kf = KFold(n_splits=n_splits, shuffle=True)
@@ -34,13 +35,13 @@ def k_fold_cv(samples: pd.DataFrame, outcomes: pd.DataFrame, n_splits=5):
         outcomes, test_outcomes = y[train_idx], y[test_idx]
 
         with suppress_stdout_stderr():
-            model = build_for_accuracy_check(samples, outcomes,
-                                             test_samples)
+            model = model_builder(samples, outcomes, test_samples)
             fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
 
-        tested_num += len(test_outcomes)
-        probs = get_disease_prob(fit)
-        for prob, actual_outcome in zip(probs, test_outcomes):
+        num = len(test_outcomes)
+        tested_num += num
+        for idx, test_sample, actual_outcome in zip(range(num), test_samples, test_outcomes):
+            prob = predictor(fit, idx, samples, test_sample)
             false_pos += not actual_outcome and (prob >= .5)
             false_neg += actual_outcome and (prob < .5)
             predicted += actual_outcome == (prob >= .5)
