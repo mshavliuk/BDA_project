@@ -30,6 +30,20 @@ def jitter(array):
     return array + np.random.rand(*array.shape)
 
 
+def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
+    false_pos, false_neg, predicted = 0, 0, 0
+    
+    for i, actual_outcome in enumerate(outcomes):
+        prediction = fit['probs'][i].mean() >= .5
+        false_pos += not actual_outcome and prediction
+        false_neg += actual_outcome and not prediction
+        predicted += actual_outcome == prediction
+
+    print(f"LOO-WS score: {predicted / len(outcomes) * 100:3.2f}%", end= " | ")
+    print(f"Predicted: {predicted:3d} / {len(outcomes):3d}", end= " | ")
+    print(f"False positives: {false_pos} | False negatives: {false_neg}")
+
+
 def psis_loo_summary(fit: Fit):
     loo = az.loo(fit, pointwise=True)
     display(loo)
@@ -50,7 +64,8 @@ def main():
     outcomes = data['target']
     model = build(samples, outcomes)
     fit = sample(model)
-
+    print("-------------------")
+    loo_within_sample(fit, outcomes)
     psis_loo_summary(fit)
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
     display(summary)
