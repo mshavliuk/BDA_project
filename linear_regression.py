@@ -29,8 +29,8 @@ def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False,
     stan_data = {'N': samples.shape[0], 'J': samples.shape[1],
                  'x': samples.values, 'y': outcomes.values,
                  'prior_alpha_mu': 0.5, 'prior_alpha_sigma': 10,
-                 'prior_beta_mu': [0], 'prior_beta_sigma': [10],
-                 'beta_prior_type': BetaPriorType.Normal, **kw_priors}
+                 'prior_beta_mu': [], 'prior_beta_sigma': [],
+                 'beta_prior_type': BetaPriorType.Uniform, **kw_priors}
 
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
     with context():
