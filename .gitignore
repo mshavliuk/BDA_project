@@ -9,3 +9,4 @@ Thumbs.db
 **/.ipynb_checkpoints
 **/.pytest_cache
 **/.build
+**/build
