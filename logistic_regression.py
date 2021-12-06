@@ -63,6 +63,7 @@ def main():
     model = build(samples, outcomes, True)
     fit = sample(model)
     psis_loo_summary(fit, 'Logistic')
+    plt.show()
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
     display(summary)
 

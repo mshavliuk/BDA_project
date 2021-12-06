@@ -19,7 +19,6 @@ def psis_loo_summary(fit: Fit, name: str):
     az.plot_khat(loo, show_bins=True, ax=ax)
     ax.set_title(f'Loo {name} model')
     print(f"Mean Pareto K: {loo['pareto_k'].values.mean():.2f}")
-    plt.show()
 
 
 def k_fold_cv(model_builder: Callable, predictor: Callable, samples: pd.DataFrame,
@@ -70,6 +69,7 @@ def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
     print(f"LOO-WS score: {predicted / len(outcomes) * 100:3.2f}%", end=" | ")
     print(f"Predicted: {predicted:3d} / {len(outcomes):3d}", end=" | ")
     print(f"False positives: {false_pos} | False negatives: {false_neg}")
+    return predicted
 
 
 def convergence(fit: Fit, var_names):
@@ -77,6 +77,6 @@ def convergence(fit: Fit, var_names):
     display(summary[['mean', 'sd', 'hdi_5%', 'hdi_95%', 'mcse_mean', 'ess_bulk', 'r_hat']])
 
     stats = az.from_pystan(fit, log_likelihood='log_lik')['sample_stats']
-    display(pd.Series({'max_tree_depth': stats.tree_depth.values.max(),
+    display(pd.DataFrame({'max_tree_depth': stats.tree_depth.values.max(),
                        'mean_tree_depth': stats.tree_depth.values.mean(),
-                       'divergences_num': stats.diverging.values.sum()}))
+                       'divergences_num': stats.diverging.values.sum()}, index=['stat']))
