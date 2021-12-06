@@ -21,17 +21,10 @@ model {
 generated quantities {     
     real<lower=0, upper=1> probs[N];    
     vector[N] log_lik = rep_vector(0, N);    
-    real tmp;
 
     // Calculate LOO
-    for (i in 1:N)
-    {
-        tmp = 0;
-        for (j in 1:J)
-        {
-            tmp += beta[j] * X[i,j];
-        }                
-        log_lik[i] = bernoulli_logit_lpmf(y|alpha + tmp);
-        probs[i] = inv_logit(alpha + tmp); // model
+    for (i in 1:N) {
+        log_lik[i] = bernoulli_logit_lpmf(y|alpha + X[i] * beta);
+        probs[i] = inv_logit(alpha + X[i] * beta); // model
     }         
 }
