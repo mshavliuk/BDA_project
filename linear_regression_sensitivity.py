@@ -1,6 +1,5 @@
 import arviz as az
 import pandas as pd
-from IPython.core.display import display
 
 import diagnostics
 import linear_regression as lin
@@ -43,7 +42,11 @@ def test_model(model_builder, samples, outcomes):
     mean_alpha = fit['alpha'].mean()
     mean_betas = fit['beta'].mean(axis=1)
 
-    return [loo_ws, loo_kf, loo_psis]
+    return [
+        f"{loo_ws / len(outcomes) * 100:.2f}%",
+        f"{loo_kf / len(outcomes) * 100:.2f}%",
+        loo_psis
+    ]
 
 
 def test_priors():
