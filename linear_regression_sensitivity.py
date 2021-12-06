@@ -9,12 +9,10 @@ def main():
     outcomes = data['target']
 
     lin.build(samples, outcomes,
-              kw_priors={'prior_beta_mu': [], 'prior_beta_sigma': [],
-                         'beta_prior_type': lin.BetaPriorType.DoubleExponential})
+              kw_priors={'beta_prior_type': lin.BetaPriorType.DoubleExponential})
 
     lin.build(samples, outcomes,
-              kw_priors={'prior_beta_mu': [], 'prior_beta_sigma': [],
-                         'beta_prior_type': lin.BetaPriorType.Uniform})
+              kw_priors={'beta_prior_type': lin.BetaPriorType.Uniform})
 
     lin.build(samples, outcomes,
               kw_priors={'prior_beta_mu': [0], 'prior_beta_sigma': [1],
