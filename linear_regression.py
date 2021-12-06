@@ -8,7 +8,7 @@ import stan
 from IPython.display import display
 from stan.fit import Fit
 
-from diagnostics import psis_loo_summary, k_fold_cv
+import diagnostics
 from utils import suppress_stdout_stderr
 
 
@@ -114,10 +114,12 @@ def main():
     outcomes = data['target']
     model = build(samples, outcomes)
     fit = sample(model)
+    diagnostics.convergence(fit, var_names=['alpha', 'beta', 'sigma'])
+    return
     plot_draws(fit, samples)
-    k_fold_cv(build, get_disease_prob, samples, outcomes, 50)
-    loo_within_sample(fit, outcomes)
-    psis_loo_summary(fit, 'Linear')
+    diagnostics.k_fold_cv(build, get_disease_prob, samples, outcomes, 10)
+    diagnostics.loo_within_sample(fit, outcomes)
+    diagnostics.psis_loo_summary(fit, 'Linear')
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
     display(summary)
 

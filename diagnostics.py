@@ -24,8 +24,6 @@ def psis_loo_summary(fit: Fit, name: str):
 
 def k_fold_cv(model_builder: Callable, predictor: Callable, samples: pd.DataFrame,
               outcomes: pd.DataFrame, n_splits=5):
-    X = samples.values
-    y = outcomes.values
     kf = KFold(n_splits=n_splits, shuffle=True)
     false_pos, false_neg, predicted = 0, 0, 0
     start_time = time.time()
@@ -36,7 +34,8 @@ def k_fold_cv(model_builder: Callable, predictor: Callable, samples: pd.DataFram
         fit_samples, test_samples = samples[fit_query], samples[~fit_query]
         fit_outcomes, test_outcomes = outcomes[fit_query], outcomes[~fit_query]
         with suppress_stdout_stderr():
-            model = model_builder(samples=fit_samples, outcomes=fit_outcomes, test_samples=test_samples)
+            model = model_builder(samples=fit_samples, outcomes=fit_outcomes,
+                                  test_samples=test_samples)
             fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
 
         num = len(test_outcomes)
@@ -71,3 +70,13 @@ def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
     print(f"LOO-WS score: {predicted / len(outcomes) * 100:3.2f}%", end=" | ")
     print(f"Predicted: {predicted:3d} / {len(outcomes):3d}", end=" | ")
     print(f"False positives: {false_pos} | False negatives: {false_neg}")
+
+
+def convergence(fit: Fit, var_names):
+    summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=var_names)
+    display(summary[['mean', 'sd', 'hdi_5%', 'hdi_95%', 'mcse_mean', 'ess_bulk', 'r_hat']])
+
+    stats = az.from_pystan(fit, log_likelihood='log_lik')['sample_stats']
+    display(pd.Series({'max_tree_depth': stats.tree_depth.values.max(),
+                       'mean_tree_depth': stats.tree_depth.values.mean(),
+                       'divergences_num': stats.diverging.values.sum()}))
