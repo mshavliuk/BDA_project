@@ -14,14 +14,23 @@ from stan.fit import Fit
 from utils import suppress_stdout_stderr
 
 
-def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False) -> stan.model.Model:
+class BetaPriorType:
+    Normal = 0
+    DoubleExponential = 1
+    Uniform = 2
+
+
+def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False,
+          kw_priors=None) -> stan.model.Model:
+    kw_priors = kw_priors if kw_priors else dict()
     with open('linear_regression.stan', 'r') as file:
         stan_code = file.read()
 
     stan_data = {'N': samples.shape[0], 'J': samples.shape[1],
                  'x': samples.values, 'y': outcomes.values,
-                 'prior_alpha_mu': 0, 'prior_alpha_sigma': 1000,
-                 'prior_beta_mu': 0, 'prior_beta_sigma': 10}
+                 'prior_alpha_mu': 0.5, 'prior_alpha_sigma': 10,
+                 'prior_beta_mu': [0], 'prior_beta_sigma': [10],
+                 'beta_prior_type': BetaPriorType.Normal, **kw_priors}
 
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
     with context():
@@ -78,7 +87,7 @@ def plot_draws(fit, samples):
                                               wspace=0.1, hspace=0.3))
     axes = axes.ravel()
     line_style = dict(color='C3', linewidth=2, alpha=0.8)
-    probs = fit['probs'][:, :200]
+    probs = fit['probs'][:, :250]
     for i, param_name in enumerate(samples.columns):
         values = samples[param_name].values
         beta = np.broadcast_to(values, probs.T.shape).T
