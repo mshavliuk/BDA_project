@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from typing import Callable
 
 import arviz as az
@@ -30,22 +31,25 @@ def k_fold_cv(model_builder: Callable, predictor: Callable, samples: pd.DataFram
     start_time = time.time()
     tested_num = 0
 
-    for i, (train_idx, test_idx) in enumerate(kf.split(X)):
-        samples, test_samples = X[train_idx], X[test_idx]
-        outcomes, test_outcomes = y[train_idx], y[test_idx]
-
+    for i, (fit_idx, _) in enumerate(kf.split(samples)):
+        fit_query = samples.index.isin(fit_idx)
+        fit_samples, test_samples = samples[fit_query], samples[~fit_query]
+        fit_outcomes, test_outcomes = outcomes[fit_query], outcomes[~fit_query]
         with suppress_stdout_stderr():
-            model = model_builder(samples, outcomes, test_samples)
+            model = model_builder(samples=fit_samples, outcomes=fit_outcomes, test_samples=test_samples)
             fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
 
         num = len(test_outcomes)
         tested_num += num
-        for idx, test_sample, actual_outcome in zip(range(num), test_samples, test_outcomes):
+        for idx, test_sample, actual_outcome in zip(range(num), test_samples.values, test_outcomes):
             prob = predictor(fit, idx, samples, test_sample)
             false_pos += not actual_outcome and (prob >= .5)
             false_neg += actual_outcome and (prob < .5)
             predicted += actual_outcome == (prob >= .5)
 
+        eta = datetime.fromtimestamp(
+            time.time() + (time.time() - start_time) / (i + 1) * (n_splits - i - 1))
+        print(f'ETA: {eta.strftime("%H:%M:%S")}', end=' | ')
         print(f"LOO score: {predicted / tested_num * 100:3.2f}%", end=' | ')
         print(f"Predicted: {predicted:3d} / {tested_num:3d}", end=' | ')
         print(f"False positives: {false_pos} | False negatives: {false_neg}", end='\r')

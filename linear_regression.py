@@ -1,6 +1,4 @@
 import contextlib
-import time
-from datetime import datetime
 
 import arviz as az
 import matplotlib.pyplot as plt
@@ -8,9 +6,9 @@ import numpy as np
 import pandas as pd
 import stan
 from IPython.display import display
-from sklearn.model_selection import KFold
 from stan.fit import Fit
 
+from diagnostics import psis_loo_summary, k_fold_cv
 from utils import suppress_stdout_stderr
 
 
@@ -21,7 +19,7 @@ class BetaPriorType:
 
 
 def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False,
-          kw_priors=None) -> stan.model.Model:
+          kw_priors=None, **kwargs) -> stan.model.Model:
     kw_priors = kw_priors if kw_priors else dict()
     with open('linear_regression.stan', 'r') as file:
         stan_code = file.read()
@@ -47,17 +45,7 @@ def jitter(array):
     return array + np.random.rand(*array.shape)
 
 
-def psis_loo_summary(fit: Fit):
-    loo = az.loo(fit, pointwise=True)
-    display(loo)
-    fig, ax = plt.subplots(figsize=(8, 3))
-    az.plot_khat(loo, show_bins=True, ax=ax)
-    ax.set_title('Loo Linear model')
-    print(f"Mean Pareto K: {loo['pareto_k'].values.mean():.2f}")
-    plt.show()
-
-
-def get_prob(fit, data: pd.DataFrame, sample: pd.DataFrame):
+def get_disease_prob(fit, _, data: pd.DataFrame, sample: pd.DataFrame):
     prob = fit['alpha']
     scale = (data.max() - data.min())
     sample_std = (sample - data.min()) / scale
@@ -66,7 +54,7 @@ def get_prob(fit, data: pd.DataFrame, sample: pd.DataFrame):
         x_i = sample_std[param_name]
         prob += beta_i * x_i
 
-    return prob
+    return prob.mean()
 
 
 def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
@@ -119,37 +107,6 @@ def plot_draws(fit, samples):
     plt.show()
 
 
-def k_fold_cv(samples: pd.DataFrame, outcomes: pd.DataFrame, n_splits=5):
-    kf = KFold(n_splits=n_splits, shuffle=True)
-    false_pos, false_neg, predicted = 0, 0, 0
-    tot_test_len = 0
-    start_time = time.time()
-    for i, (fit_idx, _) in enumerate(kf.split(samples)):
-        fit_query = samples.index.isin(fit_idx)
-        samples_fit, samples_test = samples[fit_query], samples[~fit_query]
-        outcomes_fit, outcomes_test = outcomes[fit_query], outcomes[~fit_query]
-
-        with suppress_stdout_stderr():
-            model = build(samples_fit, outcomes_fit)
-            fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
-
-        tot_test_len += len(outcomes_test)
-        for test_sample, actual_outcome in zip(samples_test.iloc, outcomes_test):
-            prob_mean = get_prob(fit, samples, test_sample).mean()
-            false_pos += not actual_outcome and (prob_mean >= .5)
-            false_neg += actual_outcome and (prob_mean < .5)
-            predicted += actual_outcome == (prob_mean >= .5)
-
-        eta = datetime.fromtimestamp(
-            time.time() + (time.time() - start_time) / (i + 1) * (n_splits - i - 1))
-        print(f'ETA: {eta.strftime("%H:%M:%S")}', end=' | ')
-        print(f"LOO-CV score: {predicted / tot_test_len * 100:3.2f}%", end=' | ')
-        print(f"Predicted: {predicted:3d} / {tot_test_len:3d}", end=' | ')
-        print(f"False positives: {false_pos} | False negatives: {false_neg}", end='\r', flush=True)
-
-    print(f"\nTotal time: {int(time.time() - start_time)} sec")
-
-
 def main():
     plt.rcParams['figure.dpi'] = 200
     data = pd.read_csv('heart.csv')
@@ -158,9 +115,9 @@ def main():
     model = build(samples, outcomes)
     fit = sample(model)
     plot_draws(fit, samples)
-    k_fold_cv(samples, outcomes, 50)
+    k_fold_cv(build, get_disease_prob, samples, outcomes, 50)
     loo_within_sample(fit, outcomes)
-    psis_loo_summary(fit)
+    psis_loo_summary(fit, 'Linear')
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
     display(summary)
 
