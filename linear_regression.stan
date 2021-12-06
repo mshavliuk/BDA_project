@@ -3,11 +3,18 @@ data {
   int<lower=1> J;                           // number of dimensions
   matrix[N, J] x;                           // data
   real<lower=0, upper=1> y[N];              // outcomes
+
   real prior_alpha_mu;                      // prior mean for alpha
   real<lower=0> prior_alpha_sigma;          // prior std for alpha
-  real prior_beta_mu;                       // prior mean for beta
-  real<lower=0> prior_beta_sigma;           // prior std for beta
+
+  int<lower=0, upper=2> beta_prior_type;    // 0. normal; 1. double_exponential; 2. uniform
+
+  // beta prior parameters. Required for beta_prior_type == 0
+  // should be passes as 1-element array. Otherwise as empty array.
+  real prior_beta_mu[beta_prior_type == 0];
+  real<lower=0> prior_beta_sigma[beta_prior_type == 0];
 }
+
 transformed data {
   vector[J] min_x;
   vector[J] scale_x;
@@ -18,6 +25,7 @@ transformed data {
     x_std[,j] = (x[,j] - min_x[j]) / scale_x[j];
   }
 }
+
 parameters {
   real<lower=0, upper=1> alpha;
   vector[J] beta;
@@ -26,10 +34,17 @@ parameters {
 
 model {
   sigma ~ cauchy(0,10);
-  alpha ~ beta(1, 1);
-  beta ~ normal(prior_beta_mu, prior_beta_sigma);
+  alpha ~ normal(prior_alpha_mu, prior_alpha_sigma);
+  if (beta_prior_type == 0) {
+    beta ~ normal(prior_beta_mu[1], prior_beta_sigma[1]);
+  } else if (beta_prior_type == 1) {
+    beta ~ double_exponential(0, 1);
+  } else {
+    // beta is uniform
+  }
   y ~ normal(alpha + x_std * beta, sigma);
 }
+
 generated quantities {
   vector[N] log_lik;
   vector[N] probs;
