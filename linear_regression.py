@@ -120,6 +120,7 @@ def main():
     diagnostics.k_fold_cv(build, get_disease_prob, samples, outcomes, 10)
     diagnostics.loo_within_sample(fit, outcomes)
     diagnostics.psis_loo_summary(fit, 'Linear')
+    plt.show()
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
     display(summary)
 
