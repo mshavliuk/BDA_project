@@ -83,7 +83,7 @@ def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
 
 def plot_draws(fit, samples):
     fig, axes = plt.subplots(5, 3, figsize=(14, 18), sharey=True,
-                             gridspec_kw=dict(left=0.05, right=0.98, bottom=0.05, top=0.98,
+                             gridspec_kw=dict(left=0.05, right=0.98, bottom=0.04, top=0.96,
                                               wspace=0.1, hspace=0.3))
     axes = axes.ravel()
     line_style = dict(color='C3', linewidth=2, alpha=0.8)
@@ -97,9 +97,9 @@ def plot_draws(fit, samples):
 
         xs = (values.min(), values.max() + 1)
         beta = fit['beta'][i].mean()
-        ys = (probs.mean() - beta / 2, probs.mean() + beta / 2)
+        ys = (probs.mean() - beta, probs.mean() + beta)
         axes[i].plot(xs, ys, **line_style)
-        axes[i].annotate(f"$\\beta = {beta:.3f}$", xy=(0.7, 0.1),
+        axes[i].annotate(f"$\\beta = {beta:.3f}$", xy=(0.65, 0.1),
                          xycoords='axes fraction', fontsize=14)
 
     axes[samples.shape[1]].legend(
@@ -140,7 +140,8 @@ def k_fold_cv(samples: pd.DataFrame, outcomes: pd.DataFrame, n_splits=5):
             false_neg += actual_outcome and (prob_mean < .5)
             predicted += actual_outcome == (prob_mean >= .5)
 
-        eta = datetime.fromtimestamp(time.time() + (time.time() - start_time) / (i + 1) * n_splits)
+        eta = datetime.fromtimestamp(
+            time.time() + (time.time() - start_time) / (i + 1) * (n_splits - i - 1))
         print(f'ETA: {eta.strftime("%H:%M:%S")}', end=' | ')
         print(f"LOO-CV score: {predicted / tot_test_len * 100:3.2f}%", end=' | ')
         print(f"Predicted: {predicted:3d} / {tot_test_len:3d}", end=' | ')
@@ -154,15 +155,14 @@ def main():
     data = pd.read_csv('heart.csv')
     samples = data[data.columns.difference(['target'])]
     outcomes = data['target']
-    #model = build(samples, outcomes)
-    #fit = sample(model)
-    #plot_draws(fit, samples)
-    #loo_cv(samples, outcomes)
-    k_fold_cv(samples, outcomes)
-    #loo_within_sample(fit, outcomes)
-    #psis_loo_summary(fit)
-    #summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
-    #display(summary)
+    model = build(samples, outcomes)
+    fit = sample(model)
+    plot_draws(fit, samples)
+    k_fold_cv(samples, outcomes, 50)
+    loo_within_sample(fit, outcomes)
+    psis_loo_summary(fit)
+    summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
+    display(summary)
 
 
 if __name__ == '__main__':
