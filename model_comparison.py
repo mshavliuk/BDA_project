@@ -22,8 +22,8 @@ def main():
         model_log = log.build(samples[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak']], outcomes)
         fit_log = model_log.sample(num_chains=4, num_samples=500, num_warmup=200)
 
-    inference_lin = az.convert_to_inference_data(fit_lin, log_likelihood='log_lik')
-    inference_log = az.convert_to_inference_data(fit_log, log_likelihood='log_lik')
+    inference_lin = az.from_pystan(fit_lin, log_likelihood='log_lik')
+    inference_log = az.from_pystan(fit_log, log_likelihood='log_lik')
 
     models = dict([
         ("linear_model", inference_lin),
