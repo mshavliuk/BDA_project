@@ -97,13 +97,11 @@ def main():
     SS = StandardScaler()
     col_to_scale = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
     data[col_to_scale] = SS.fit_transform(data[col_to_scale])
-
-    samples = data[data.columns.difference(['target'])]
-    #samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak', 'thal']]
+    
+    samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak']]
     outcomes = data['target']
     #model = build(samples, outcomes)
     #fit = sample(model)
-
     cross_validation(samples, outcomes)
     #psis_loo_summary(fit)
     #summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
