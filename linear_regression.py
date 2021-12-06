@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 import stan
 from IPython.display import display
-from stan.fit import Fit
 from sklearn.model_selection import KFold
+from stan.fit import Fit
+
 from utils import suppress_stdout_stderr
 
 
@@ -25,6 +26,7 @@ def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False) -> stan.
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
     with context():
         return stan.build(stan_code, data=stan_data, random_seed=0)
+
 
 def sample(model, verbose=False):
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
@@ -45,46 +47,17 @@ def psis_loo_summary(fit: Fit):
     print(f"Mean Pareto K: {loo['pareto_k'].values.mean():.2f}")
     plt.show()
 
-def get_prob(fit, data: pd.DataFrame, sample):
-    prob = np.zeros(fit.num_chains * fit.num_samples)
+
+def get_prob(fit, data: pd.DataFrame, sample: pd.DataFrame):
+    prob = fit['alpha']
     scale = (data.max() - data.min())
     sample_std = (sample - data.min()) / scale
     for i, param_name in enumerate(data.columns):
-        alpha_i = fit['alpha'][0][i]
-        beta_i = fit['beta'][0][i]
-        x_i = sample_std[param_name].iloc[0]
-        prob += alpha_i + beta_i * x_i
+        beta_i = fit['beta'][i]
+        x_i = sample_std[param_name]
+        prob += beta_i * x_i
 
-    prob /= sample.shape[1]
     return prob
-
-def loo_cv(samples: pd.DataFrame, outcomes: pd.DataFrame):
-    num = samples.shape[0]
-    false_pos, false_neg, predicted = 0, 0, 0
-    start_time = time.time()
-    for i in range(num):
-        sample_query = samples.index.isin([i])
-        test_sample = samples[sample_query]
-        outcome_query = outcomes.index.isin([i])
-        test_outcome = outcomes[outcome_query].values[0]
-
-        with suppress_stdout_stderr():
-            loo_outcomes = outcomes[~outcome_query]
-            loo_samples = samples[~sample_query]
-            model = build(loo_samples, loo_outcomes)
-            fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
-
-        prob_mean = get_prob(fit, samples, test_sample).mean()
-        false_pos += not test_outcome and (prob_mean >= .5)
-        false_neg += test_outcome and (prob_mean < .5)
-        predicted += test_outcome == (prob_mean >= .5)
-        eta = datetime.fromtimestamp(time.time() + (time.time() - start_time) / (i + 1) * num)
-        print(f'ETA: {eta.strftime("%H:%M:%S")}', end=' | ')
-        print(f"LOO-CV score: {predicted / (i + 1) * 100:3.2f}%", end=' | ')
-        print(f"Predicted: {predicted:3d} / {i + 1:3d}", end=' | ')
-        print(f"False positives: {false_pos} | False negatives: {false_neg}", end='\r', flush=True)
-
-    print(f"\nTotal time: {time.time() - start_time}")
 
 
 def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
@@ -136,32 +109,36 @@ def plot_draws(fit, samples):
         ax.set_axis_off()
     plt.show()
 
-def k_fold_cv(samples: pd.DataFrame, outcomes: pd.DataFrame):
-    kf = KFold(n_splits = 5, shuffle = True)    
+
+def k_fold_cv(samples: pd.DataFrame, outcomes: pd.DataFrame, n_splits=5):
+    kf = KFold(n_splits=n_splits, shuffle=True)
     false_pos, false_neg, predicted = 0, 0, 0
     tot_test_len = 0
     start_time = time.time()
-    for train_idx, test_idx in kf.split(samples):
-        X_train, X_test = samples.iloc[train_idx], samples.iloc[test_idx]
-        y_train, y_test = outcomes.iloc[train_idx], outcomes.iloc[test_idx]       
+    for i, (fit_idx, _) in enumerate(kf.split(samples)):
+        fit_query = samples.index.isin(fit_idx)
+        samples_fit, samples_test = samples[fit_query], samples[~fit_query]
+        outcomes_fit, outcomes_test = outcomes[fit_query], outcomes[~fit_query]
 
         with suppress_stdout_stderr():
-            model = build(X_train, y_train)
+            model = build(samples_fit, outcomes_fit)
             fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
 
-        tot_test_len += len(y_test)
-        for i in range(len(y_test)):
-            tmp_sample = pd.DataFrame(X_test.iloc[i])
-            prob_mean = get_prob(fit, samples, tmp_sample).mean()
-            false_pos += not y_test.iloc[i] and (prob_mean >= .5)
-            false_neg += y_test.iloc[i] and (prob_mean < .5)
-            predicted += y_test.iloc[i] == (prob_mean >= .5)
-            
-    print(f"LOO-CV score: {predicted / (tot_test_len) * 100:3.2f}%", end=' | ')
-    print(f"Predicted: {predicted:3d} / {tot_test_len:3d}", end=' | ')
-    print(f"False positives: {false_pos} | False negatives: {false_neg}", end='\r', flush=True)
+        tot_test_len += len(outcomes_test)
+        for test_sample, actual_outcome in zip(samples_test.iloc, outcomes_test):
+            prob_mean = get_prob(fit, samples, test_sample).mean()
+            false_pos += not actual_outcome and (prob_mean >= .5)
+            false_neg += actual_outcome and (prob_mean < .5)
+            predicted += actual_outcome == (prob_mean >= .5)
 
-    print(f"\nTotal time: {time.time() - start_time}")
+        eta = datetime.fromtimestamp(time.time() + (time.time() - start_time) / (i + 1) * n_splits)
+        print(f'ETA: {eta.strftime("%H:%M:%S")}', end=' | ')
+        print(f"LOO-CV score: {predicted / tot_test_len * 100:3.2f}%", end=' | ')
+        print(f"Predicted: {predicted:3d} / {tot_test_len:3d}", end=' | ')
+        print(f"False positives: {false_pos} | False negatives: {false_neg}", end='\r', flush=True)
+
+    print(f"\nTotal time: {int(time.time() - start_time)} sec")
+
 
 def main():
     plt.rcParams['figure.dpi'] = 200
