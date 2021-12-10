@@ -46,11 +46,13 @@ model {
 }
 
 generated quantities {
-  vector[N] log_lik;
+  vector[N * J] log_lik;
   vector[N] probs;
 
   for (i in 1:N) {
-    log_lik[i] = normal_lpdf(y | alpha + x_std[i] * beta, sigma);
+    for(j in 1: J) {
+      log_lik[(i - 1) * J + j] = normal_lpdf(y[i] | alpha + x_std[i,j] * beta[j], sigma);
+    }
     probs[i] = alpha + x_std[i] * beta;
   }
 }
