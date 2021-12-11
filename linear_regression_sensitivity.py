@@ -45,7 +45,9 @@ def test_model(model_builder, samples, outcomes):
     return [
         f"{loo_ws / len(outcomes) * 100:.2f}%",
         f"{loo_kf / len(outcomes) * 100:.2f}%",
-        loo_psis
+        loo_psis,
+        mean_alpha,
+        *mean_betas
     ]
 
 
@@ -53,15 +55,17 @@ def test_priors():
     data = pd.read_csv('heart.csv')
     samples = data[data.columns.difference(['target'])]
     outcomes = data['target']
+    parameter_columns = ['alpha'] + [f'$\\beta_{{{i}}}$' for i in range(len(samples.columns))]
 
-    summary = pd.DataFrame(columns=['within sample accuracy', 'k-fold accuracy', 'PSIS LOO ELPD'])
+    summary = pd.DataFrame(
+        columns=['within sample accuracy', 'k-fold accuracy', 'PSIS LOO ELPD', *parameter_columns])
 
     with suppress_stdout_stderr():
         results = test_model(double_exp_prior, samples, outcomes)
         summary.loc['double_exponential(0, 1)'] = results
 
         results = test_model(uniform_prior, samples, outcomes)
-        summary.loc[r'uniform($-\inf$, $\inf$)'] = results
+        summary.loc[r'uniform($-\infty, $\infty)'] = results
 
         results = test_model(normal_1_prior, samples, outcomes)
         summary.loc[r'normal(0, 1)'] = results
