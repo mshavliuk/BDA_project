@@ -18,24 +18,13 @@ class BetaPriorType:
     Uniform = 2
 
 
-def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False) -> stan.model.Model:
-    with open('logistic_regression.stan', 'r') as file:
-        stan_code = file.read()
-
-    stan_data = {'N': samples.shape[0], 'J': samples.shape[1],
-                 'X': samples.values, 'y': outcomes.values}
-    context = contextlib.nullcontext if verbose else suppress_stdout_stderr
-    with context():
-        return stan.build(stan_code, data=stan_data, random_seed=0)
-
-
-def build_for_accuracy_check(samples: pd.DataFrame, outcomes: pd.DataFrame,
-                             test_samples: Union[pd.DataFrame, None] = None, verbose=False,
-                             kw_priors=None,
-                             **kwargs) -> stan.model.Model:
+def build(samples: pd.DataFrame, outcomes: pd.DataFrame,
+          test_samples: Union[pd.DataFrame, None] = None, verbose=False,
+          kw_priors=None,
+          **kwargs) -> stan.model.Model:
     kw_priors = kw_priors if kw_priors else dict()
     test_samples = test_samples if test_samples is not None else samples.head(1)
-    with open('logistic_regression_accuracy.stan', 'r') as file:
+    with open('logistic_regression.stan', 'r') as file:
         stan_code = file.read()
 
     stan_data = {'N_samples': len(samples),
@@ -72,9 +61,9 @@ def main():
 
     samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak']]
     outcomes = data['target']
-    diagnostics.k_fold_cv(build_for_accuracy_check, get_disease_prob, samples, outcomes, 5)
-    model = build(samples, outcomes, True)
+    model = build(samples, outcomes)
     fit = sample(model)
+    diagnostics.k_fold_cv(build, get_disease_prob, samples, outcomes, 5)
     diagnostics.loo_within_sample(fit, outcomes)
     diagnostics.psis_loo_summary(fit, 'Logistic')
 

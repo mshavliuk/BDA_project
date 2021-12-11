@@ -29,7 +29,7 @@ def compare_models():
     comparison = az.compare(models, ic='loo')
 
     lin_accuracy = diagnostics.k_fold_cv(lin.build, lin.get_disease_prob, samples, outcomes, 5)
-    logit_accuracy = diagnostics.k_fold_cv(logit.build_for_accuracy_check, logit.get_disease_prob,
+    logit_accuracy = diagnostics.k_fold_cv(logit.build, logit.get_disease_prob,
                                            samples, outcomes, 5)
     comparison['k-fold accuracy'] = [lin_accuracy / len(samples), logit_accuracy / len(samples)]
     return comparison

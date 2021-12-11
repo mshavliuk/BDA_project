@@ -1,8 +1,8 @@
 import arviz as az
 import pandas as pd
+from IPython.core.display import display
 
 import diagnostics
-from IPython.core.display import display
 import linear_regression as lin
 import logistic_regression as logit
 from utils import suppress_stdout_stderr
@@ -36,9 +36,8 @@ def lin_normal_100_prior(samples, outcomes, **kwargs):
                                 'beta_prior_type': lin.BetaPriorType.Normal})
 
 
-
 def logit_double_exp_prior(samples, outcomes, **kwargs):
-    return logit.build_for_accuracy_check(
+    return logit.build(
         samples, outcomes,
         kw_priors={'beta_prior_type': logit.BetaPriorType.DoubleExponential},
         **kwargs
@@ -46,7 +45,7 @@ def logit_double_exp_prior(samples, outcomes, **kwargs):
 
 
 def logit_uniform_prior(samples, outcomes, **kwargs):
-    return logit.build_for_accuracy_check(
+    return logit.build(
         samples, outcomes,
         kw_priors={'beta_prior_type': logit.BetaPriorType.Uniform},
         **kwargs
@@ -54,7 +53,7 @@ def logit_uniform_prior(samples, outcomes, **kwargs):
 
 
 def logit_normal_1_prior(samples, outcomes, **kwargs):
-    return logit.build_for_accuracy_check(
+    return logit.build(
         samples, outcomes,
         kw_priors={'prior_beta_mu': [0], 'prior_beta_sigma': [1],
                    'beta_prior_type': logit.BetaPriorType.Normal},
@@ -63,7 +62,7 @@ def logit_normal_1_prior(samples, outcomes, **kwargs):
 
 
 def logit_normal_10_prior(samples, outcomes, **kwargs):
-    return logit.build_for_accuracy_check(
+    return logit.build(
         samples, outcomes,
         kw_priors={'prior_beta_mu': [0], 'prior_beta_sigma': [10],
                    'beta_prior_type': logit.BetaPriorType.Normal},
@@ -72,13 +71,12 @@ def logit_normal_10_prior(samples, outcomes, **kwargs):
 
 
 def logit_normal_100_prior(samples, outcomes, **kwargs):
-    return logit.build_for_accuracy_check(
+    return logit.build(
         samples, outcomes,
         kw_priors={'prior_beta_mu': [0], 'prior_beta_sigma': [100],
                    'beta_prior_type': logit.BetaPriorType.Normal},
         **kwargs
     )
-
 
 
 def test_model(model_builder, samples, outcomes):
