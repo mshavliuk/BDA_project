@@ -1,4 +1,5 @@
 import contextlib
+from typing import Union
 
 import arviz as az
 import matplotlib.pyplot as plt
@@ -7,7 +8,7 @@ import stan
 from IPython.core.display import display
 from sklearn.preprocessing import StandardScaler
 
-from diagnostics import psis_loo_summary, k_fold_cv
+import diagnostics
 from utils import suppress_stdout_stderr
 
 
@@ -40,10 +41,11 @@ def build_for_accuracy_check(samples: pd.DataFrame, outcomes: pd.DataFrame,
         return stan.build(stan_code, data=stan_data, random_seed=0)
 
 
-def sample(model, verbose=False):
+def sample(model, verbose=False,  **kwargs):
+    defaults = dict(num_chains=4, num_samples=500, num_warmup=200)
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
     with context():
-        return model.sample(num_chains=4, num_samples=500, num_warmup=200)
+        return model.sample(**{**defaults, **kwargs})
 
 
 def get_disease_prob(fit, i, *args):
@@ -59,12 +61,17 @@ def main():
 
     samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak']]
     outcomes = data['target']
-    k_fold_cv(build_for_accuracy_check, get_disease_prob, samples, outcomes, 50)
+    diagnostics.k_fold_cv(build_for_accuracy_check, get_disease_prob, samples, outcomes, 5)
     model = build(samples, outcomes, True)
     fit = sample(model)
-    psis_loo_summary(fit, 'Logistic')
-    plt.show()
+    diagnostics.loo_within_sample(fit, outcomes)
+    diagnostics.psis_loo_summary(fit, 'Logistic')
+
+    # fit with saving warmup steps
+    fit = sample(model, num_samples=0, num_warmup=200, save_warmup=True)
+    diagnostics.plot_chains(fit, samples)
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
+    plt.show()
     display(summary)
 
 

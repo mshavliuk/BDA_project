@@ -35,7 +35,7 @@ def k_fold_cv(model_builder: Callable, predictor: Callable, samples: pd.DataFram
         with suppress_stdout_stderr():
             model = model_builder(samples=fit_samples, outcomes=fit_outcomes,
                                   test_samples=test_samples)
-            fit = model.sample(num_chains=4, num_samples=200, num_warmup=200)
+            fit = model.sample(num_chains=4, num_samples=500, num_warmup=200)
 
         num = len(test_outcomes)
         tested_num += num
@@ -80,3 +80,24 @@ def convergence(fit: Fit, var_names):
     display(pd.DataFrame({'max_tree_depth': stats.tree_depth.values.max(),
                        'mean_tree_depth': stats.tree_depth.values.mean(),
                        'divergences_num': stats.diverging.values.sum()}, index=['stat']))
+
+
+def plot_chains(fit: Fit, samples: pd.DataFrame):
+    posterior = az.from_pystan(fit)['posterior']
+    fig, axes = plt.subplots(nrows=3, ncols=5, figsize=(16, 9),
+                             gridspec_kw=dict(left=0.05, right=0.98, bottom=0.04, top=0.96,
+                                              wspace=0.3, hspace=0.3))
+
+    axes = axes.ravel()
+    for param_i, param_name in enumerate(samples.columns):
+        axes[param_i].set_title(f"$\\beta_{{{param_name}}}$")
+        for chain_i in range(posterior.num_chains):
+            axes[param_i].plot(posterior['beta'].data[chain_i, :100, param_i], alpha=0.5)
+
+    axes[-2].set_axis_off()
+    gs = axes[-1].get_gridspec()
+    axes[-1].remove()
+    axbig = fig.add_subplot(gs[-1:, -2:])
+    axbig.set_title(r"$\alpha$")
+    for chain_i in range(posterior.num_chains):
+        axbig.plot(posterior['alpha'].data[chain_i, :], alpha=0.5)

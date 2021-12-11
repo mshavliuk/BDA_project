@@ -1,11 +1,10 @@
 import contextlib
 
 import arviz as az
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import stan
-from IPython.display import display
+from matplotlib import pyplot as plt
 from stan.fit import Fit
 
 import diagnostics
@@ -35,10 +34,11 @@ def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False,
         return stan.build(stan_code, data=stan_data, random_seed=0)
 
 
-def sample(model, verbose=False):
+def sample(model, verbose=False, **kwargs):
+    defaults = dict(num_chains=4, num_samples=500, num_warmup=200)
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
     with context():
-        return model.sample(num_chains=4, num_samples=500, num_warmup=200)
+        return model.sample(**{**defaults, **kwargs})
 
 
 def jitter(array):
@@ -70,9 +70,11 @@ def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
 
 
 def plot_draws(fit, samples):
-    fig, axes = plt.subplots(2, 3, figsize=(14, 8), sharey=True,
+    fig, axes = plt.subplots(3, 5, figsize=(16, 9), sharey=True,
                              gridspec_kw=dict(left=0.05, right=0.98, bottom=0.04, top=0.96,
                                               wspace=0.1, hspace=0.3))
+    for ax in axes[:, 0]:
+        ax.set_ylabel(r"$P_{disease}$")
     axes = axes.ravel()
     line_style = dict(color='C3', linewidth=2, alpha=0.8)
     probs = fit['probs'][:, :250]
@@ -81,13 +83,12 @@ def plot_draws(fit, samples):
         beta = np.broadcast_to(values, probs.T.shape).T
         axes[i].scatter(y=probs.ravel(), x=jitter(beta).ravel(), s=4, color='#00f', alpha=0.01)
         axes[i].set_title(param_name)
-        axes[i].set_ylabel(r"$P_{disease}$")
 
         xs = (values.min(), values.max() + 1)
-        beta = fit['beta'][i].mean()
-        ys = (probs.mean() - beta, probs.mean() + beta)
+        beta_mean = fit['beta'][i].mean()
+        ys = (probs.mean() - beta_mean, probs.mean() + beta_mean)
         axes[i].plot(xs, ys, **line_style)
-        axes[i].annotate(f"$\\beta = {beta:.3f}$", xy=(0.65, 0.1),
+        axes[i].annotate(f"$\\beta = {beta_mean:.3f}$", xy=(0.05, 0.05),
                          xycoords='axes fraction', fontsize=14)
 
     axes[samples.shape[1]].legend(
@@ -96,7 +97,7 @@ def plot_draws(fit, samples):
             plt.Line2D([], [], linestyle='', marker='o', markersize=10, color='#00f', alpha=0.8)
         ),
         (
-            r'linear correlation $\alpha + x \times \beta$',
+            r'linear correlation $\alpha + x \cdot \beta$',
             'draws'
         ),
         loc='upper left',
@@ -114,12 +115,16 @@ def main():
     outcomes = data['target']
     model = build(samples, outcomes)
     fit = sample(model)
-    diagnostics.convergence(fit, var_names=['alpha', 'beta', 'sigma'])
-    return
     plot_draws(fit, samples)
-    diagnostics.k_fold_cv(build, get_disease_prob, samples, outcomes, 10)
+    diagnostics.convergence(fit, var_names=['alpha', 'beta', 'sigma'])
+    diagnostics.k_fold_cv(build, get_disease_prob, samples, outcomes, 5)
     diagnostics.loo_within_sample(fit, outcomes)
     diagnostics.psis_loo_summary(fit, 'Linear')
+
+    # fit with saving warmup steps
+    fit = sample(model, num_samples=0, num_warmup=200, save_warmup=True)
+    diagnostics.plot_chains(fit, samples)
+
     plt.show()
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
     display(summary)
