@@ -12,6 +12,12 @@ import diagnostics
 from utils import suppress_stdout_stderr
 
 
+class BetaPriorType:
+    Normal = 0
+    DoubleExponential = 1
+    Uniform = 2
+
+
 def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False) -> stan.model.Model:
     with open('logistic_regression.stan', 'r') as file:
         stan_code = file.read()
@@ -24,24 +30,29 @@ def build(samples: pd.DataFrame, outcomes: pd.DataFrame, verbose=False) -> stan.
 
 
 def build_for_accuracy_check(samples: pd.DataFrame, outcomes: pd.DataFrame,
-                             test_samples: pd.DataFrame, verbose=False,
+                             test_samples: Union[pd.DataFrame, None] = None, verbose=False,
+                             kw_priors=None,
                              **kwargs) -> stan.model.Model:
+    kw_priors = kw_priors if kw_priors else dict()
+    test_samples = test_samples if test_samples is not None else samples.head(1)
     with open('logistic_regression_accuracy.stan', 'r') as file:
         stan_code = file.read()
 
-    stan_data = {'N_train': len(outcomes),
+    stan_data = {'N_samples': len(samples),
                  'N_test': len(test_samples),
                  'J': samples.shape[1],
-                 'X_train': samples.values,
-                 'y_train': outcomes.values,
-                 'X_test': test_samples.values}
+                 'x_samples': samples.values,
+                 'y_samples': outcomes.values,
+                 'x_test': test_samples.values,
+                 'prior_beta_mu': [], 'prior_beta_sigma': [],
+                 **kw_priors}
 
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
     with context():
         return stan.build(stan_code, data=stan_data, random_seed=0)
 
 
-def sample(model, verbose=False,  **kwargs):
+def sample(model, verbose=False, **kwargs):
     defaults = dict(num_chains=4, num_samples=500, num_warmup=200)
     context = contextlib.nullcontext if verbose else suppress_stdout_stderr
     with context():
