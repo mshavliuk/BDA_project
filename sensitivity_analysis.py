@@ -118,6 +118,7 @@ def test_lin_model(samples, outcomes):
 
 
 def test_logit_model(samples, outcomes):
+    samples = logit.normalize_samples(samples)
     parameter_columns = ['alpha'] + [f'$\\beta_{{{i}}}$' for i in range(len(samples.columns))]
     summary = pd.DataFrame(
         columns=['within sample accuracy', 'k-fold accuracy', 'PSIS LOO ELPD', *parameter_columns])

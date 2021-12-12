@@ -53,14 +53,18 @@ def get_disease_prob(fit, i, *args):
     return fit['y_prob_pred'][i].mean()
 
 
+def normalize_samples(samples):
+    SS = StandardScaler()
+    col_to_scale = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
+    normalized = samples.copy()
+    normalized.loc[:, col_to_scale] = SS.fit_transform(samples[col_to_scale])
+
+    return normalized
+
 def main():
     plt.rcParams['figure.dpi'] = 200
     data = pd.read_csv('heart.csv')
-    SS = StandardScaler()
-    col_to_scale = ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']
-    data[col_to_scale] = SS.fit_transform(data[col_to_scale])
-
-    samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak']]
+    samples = normalize_samples(data[data.columns.difference(['target'])])
     outcomes = data['target']
     model = build(samples, outcomes)
     fit = sample(model)
