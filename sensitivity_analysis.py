@@ -79,10 +79,10 @@ def logit_normal_100_prior(samples, outcomes, **kwargs):
     )
 
 
-def test_model(model_builder, samples, outcomes):
+def test_model(model_builder, predictor, samples, outcomes):
     fit = lin.sample(model_builder(samples, outcomes))
     loo_ws = diagnostics.loo_within_sample(fit, outcomes)
-    loo_kf = diagnostics.k_fold_cv(model_builder, lin.get_disease_prob, samples, outcomes, 5)
+    loo_kf = diagnostics.k_fold_cv(model_builder, predictor, samples, outcomes, 5)
     loo_psis = az.loo(fit, pointwise=True)['loo']
     mean_alpha = fit['alpha'].mean()
     mean_betas = fit['beta'].mean(axis=1)
@@ -101,17 +101,17 @@ def test_lin_model(samples, outcomes):
     summary = pd.DataFrame(
         columns=['within sample accuracy', 'k-fold accuracy', 'PSIS LOO ELPD', *parameter_columns])
     with suppress_stdout_stderr():
-        results = test_model(lin_double_exp_prior, samples, outcomes)
+        results = test_model(lin_double_exp_prior, lin.get_disease_prob, samples, outcomes)
         summary.loc['double_exponential(0, 1)'] = results
 
-        results = test_model(lin_uniform_prior, samples, outcomes)
+        results = test_model(lin_uniform_prior, lin.get_disease_prob, samples, outcomes)
         summary.loc[r'uniform($-\infty, $\infty)'] = results
 
-        results = test_model(lin_normal_1_prior, samples, outcomes)
+        results = test_model(lin_normal_1_prior, lin.get_disease_prob, samples, outcomes)
         summary.loc[r'normal(0, 1)'] = results
-        results = test_model(lin_normal_10_prior, samples, outcomes)
+        results = test_model(lin_normal_10_prior, lin.get_disease_prob, samples, outcomes)
         summary.loc[r'normal(0, 10)'] = results
-        results = test_model(lin_normal_100_prior, samples, outcomes)
+        results = test_model(lin_normal_100_prior, lin.get_disease_prob, samples, outcomes)
         summary.loc[r'normal(0, 100)'] = results
 
     return summary
@@ -122,17 +122,17 @@ def test_logit_model(samples, outcomes):
     summary = pd.DataFrame(
         columns=['within sample accuracy', 'k-fold accuracy', 'PSIS LOO ELPD', *parameter_columns])
     with suppress_stdout_stderr():
-        results = test_model(logit_double_exp_prior, samples, outcomes)
+        results = test_model(logit_double_exp_prior, logit.get_disease_prob, samples, outcomes)
         summary.loc['double_exponential(0, 1)'] = results
 
-        results = test_model(logit_uniform_prior, samples, outcomes)
+        results = test_model(logit_uniform_prior, logit.get_disease_prob, samples, outcomes)
         summary.loc[r'uniform($-\infty, $\infty)'] = results
 
-        results = test_model(logit_normal_1_prior, samples, outcomes)
+        results = test_model(logit_normal_1_prior, logit.get_disease_prob, samples, outcomes)
         summary.loc[r'normal(0, 1)'] = results
-        results = test_model(logit_normal_10_prior, samples, outcomes)
+        results = test_model(logit_normal_10_prior, logit.get_disease_prob, samples, outcomes)
         summary.loc[r'normal(0, 10)'] = results
-        results = test_model(logit_normal_100_prior, samples, outcomes)
+        results = test_model(logit_normal_100_prior, logit.get_disease_prob, samples, outcomes)
         summary.loc[r'normal(0, 100)'] = results
 
     return summary

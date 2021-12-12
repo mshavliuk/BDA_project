@@ -33,6 +33,7 @@ def build(samples: pd.DataFrame, outcomes: pd.DataFrame,
                  'x_samples': samples.values,
                  'y_samples': outcomes.values,
                  'x_test': test_samples.values,
+                 'beta_prior_type': BetaPriorType.Uniform,
                  'prior_beta_mu': [], 'prior_beta_sigma': [],
                  **kw_priors}
 
