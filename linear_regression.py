@@ -126,8 +126,6 @@ def main():
     diagnostics.plot_chains(fit, samples)
 
     plt.show()
-    summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta', 'sigma'])
-    display(summary)
 
 
 if __name__ == '__main__':

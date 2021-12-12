@@ -75,9 +75,7 @@ def main():
     # fit with saving warmup steps
     fit = sample(model, num_samples=0, num_warmup=200, save_warmup=True)
     diagnostics.plot_chains(fit, samples)
-    summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=['alpha', 'beta'])
     plt.show()
-    display(summary)
 
 
 if __name__ == '__main__':
