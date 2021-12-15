@@ -1,7 +1,7 @@
 import arviz as az
 import pandas as pd
 
-import diagnostics
+from IPython.core.display import display
 import linear_regression as lin
 import logistic_regression as logit
 from utils import suppress_stdout_stderr
@@ -9,7 +9,7 @@ from utils import suppress_stdout_stderr
 
 def compare_models():
     data = pd.read_csv('heart.csv')
-    samples = data[['cp', 'trestbps', 'thalach', 'ca', 'oldpeak']]
+    samples = data[data.columns.difference(['target'])]
     outcomes = data['target']
 
     with suppress_stdout_stderr():
@@ -28,12 +28,8 @@ def compare_models():
     ])
     comparison = az.compare(models, ic='loo')
 
-    lin_accuracy = diagnostics.k_fold_cv(lin.build, lin.get_disease_prob, samples, outcomes, 5)
-    logit_accuracy = diagnostics.k_fold_cv(logit.build, logit.get_disease_prob,
-                                           samples, outcomes, 5)
-    comparison['k-fold accuracy'] = [lin_accuracy / len(samples), logit_accuracy / len(samples)]
     return comparison
 
 
 if __name__ == '__main__':
-    compare_models()
+    display(compare_models())

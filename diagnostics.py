@@ -57,7 +57,7 @@ def k_fold_cv(model_builder: Callable, predictor: Callable, samples: pd.DataFram
     return predicted
 
 
-def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
+def loo_within_sample(fit: Fit, outcomes: pd.Series):
     false_pos, false_neg, predicted = 0, 0, 0
 
     for i, actual_outcome in enumerate(outcomes):
@@ -74,12 +74,12 @@ def loo_within_sample(fit: Fit, outcomes: pd.DataFrame):
 
 def convergence(fit: Fit, var_names):
     summary = az.summary(fit, round_to=3, hdi_prob=0.9, var_names=var_names)
-    display(summary[['mean', 'sd', 'hdi_5%', 'hdi_95%', 'mcse_mean', 'ess_bulk', 'r_hat']])
+    display(summary[['mcse_mean', 'ess_bulk', 'r_hat']])
 
     stats = az.from_pystan(fit, log_likelihood='log_lik')['sample_stats']
     display(pd.DataFrame({'max_tree_depth': stats.tree_depth.values.max(),
-                       'mean_tree_depth': stats.tree_depth.values.mean(),
-                       'divergences_num': stats.diverging.values.sum()}, index=['stat']))
+                          'mean_tree_depth': stats.tree_depth.values.mean(),
+                          'divergences_num': stats.diverging.values.sum()}, index=['stat']))
 
 
 def plot_chains(fit: Fit, samples: pd.DataFrame):
@@ -101,3 +101,12 @@ def plot_chains(fit: Fit, samples: pd.DataFrame):
     axbig.set_title(r"$\alpha$")
     for chain_i in range(posterior.num_chains):
         axbig.plot(posterior['alpha'].data[chain_i, :], alpha=0.5)
+
+
+
+def plot_posterior(fit):
+    fig, axes = plt.subplots(3, 5, figsize=(16, 9),
+                             gridspec_kw=dict(left=0.02, right=0.98, bottom=0.04, top=0.94,
+                                              wspace=0.2, hspace=0.5))
+    az.plot_posterior(fit, var_names=['beta', 'alpha'], hdi_prob=.9, round_to=2, ax=axes)
+    axes.ravel()[-1].set_axis_off()

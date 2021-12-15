@@ -1,6 +1,5 @@
 import contextlib
 
-import arviz as az
 import numpy as np
 import pandas as pd
 import stan
@@ -113,7 +112,10 @@ def main():
     data = pd.read_csv('heart.csv')
     samples = data[data.columns.difference(['target'])]
     outcomes = data['target']
-    model = build(samples, outcomes)
+    model = build(samples, outcomes, kw_priors={
+        'beta_prior_type': BetaPriorType.Normal,
+        'prior_beta_mu': [0], 'prior_beta_sigma': [1]
+    })
     fit = sample(model)
     plot_draws(fit, samples)
     diagnostics.convergence(fit, var_names=['alpha', 'beta', 'sigma'])
