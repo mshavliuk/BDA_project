@@ -38,13 +38,11 @@ model {
 generated quantities {         
   real<lower=0, upper=1> y_prob_pred[N_test];
   real<lower=0, upper=1> probs[N_samples];
-  vector[N_samples * J] log_lik;
+  vector[N_samples] log_lik;
 
   // Calculate LOO
   for (i in 1:N_samples) {
-    for(j in 1:J) {
-      log_lik[(i - 1) * J + j] = bernoulli_logit_lpmf(y_samples[i] | alpha + x_samples[i, j] * beta[j]);
-    }
+    log_lik[i] = bernoulli_logit_lpmf(y_samples[i] | alpha + x_samples[i] * beta);
     probs[i] = inv_logit(alpha + x_samples[i] * beta); // model
   }
 

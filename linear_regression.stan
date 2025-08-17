@@ -42,17 +42,16 @@ model {
   } else {
     // beta is uniform
   }
+
   y ~ normal(alpha + x_std * beta, sigma);
 }
 
 generated quantities {
-  vector[N * J] log_lik;
+  vector[N] log_lik;
   vector[N] probs;
 
   for (i in 1:N) {
-    for(j in 1: J) {
-      log_lik[(i - 1) * J + j] = normal_lpdf(y[i] | alpha + x_std[i,j] * beta[j], sigma);
-    }
+    log_lik[i] = normal_lpdf(y[i] | alpha + x_std[i] * beta, sigma);
     probs[i] = alpha + x_std[i] * beta;
   }
 }
